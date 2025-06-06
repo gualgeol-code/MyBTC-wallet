@@ -8,18 +8,40 @@ from bitcoinlib.networks import NetworkError # Removed get_network
 from bitcoinlib.scripts import Script, ScriptError # Changed from bitcoinlib.script
 
 # App-specific imports
+import sys # For path manipulation
+import os # For path manipulation
 try:
     from .. import config # For package-like execution
     from . import utxo_manager # To potentially fetch UTXOs if not provided
+    from ..utils import fee_estimator # Import new fee_estimator
 except ImportError:
-    import sys
-    import os
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.dirname(current_dir)
+    current_dir = os.path.dirname(os.path.abspath(__file__)) # .../wallet
+    parent_dir = os.path.dirname(current_dir) # .../btc_wallet_app
+
+    # Add .../btc_wallet_app to sys.path for 'import config' and 'from wallet import ...'
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
-    import config
-    import utxo_manager # Fallback for direct execution
+
+    # Add .../ (parent of btc_wallet_app) to sys.path for 'from btc_wallet_app.utils import ...'
+    grandparent_dir = os.path.dirname(parent_dir)
+    if grandparent_dir not in sys.path:
+        sys.path.insert(0, grandparent_dir)
+
+    try:
+        from btc_wallet_app import config
+        from btc_wallet_app.wallet import utxo_manager
+        from btc_wallet_app.utils import fee_estimator
+    except ImportError: # Last resort if running from 'wallet' directory directly
+        if parent_dir not in sys.path: # ensure btc_wallet_app is in path
+            sys.path.insert(0, parent_dir)
+        import config
+        import utxo_manager
+        # For fee_estimator, utils is sibling to wallet
+        utils_path = os.path.join(parent_dir, "utils")
+        if utils_path not in sys.path:
+            sys.path.insert(0, utils_path)
+        import fee_estimator
+
 
 SATOSHIS_PER_BTC = Decimal('100000000')
 
@@ -31,35 +53,7 @@ def satoshi_to_btc(satoshi_amount: int) -> Decimal:
     """Converts satoshis (integer) to BTC (Decimal)."""
     return Decimal(satoshi_amount) / SATOSHIS_PER_BTC
 
-def estimate_transaction_size(num_inputs: int, num_outputs: int, input_type: str = 'p2wpkh', output_type: str = 'p2pkh') -> int:
-    """
-    Estimates transaction size in bytes.
-    P2WPKH input: approx 68 vbytes (base size ~10.5 bytes, witness ~108 bytes, total vbytes ~68)
-                Non-segwit: P2PKH input approx 148 bytes.
-    P2PKH output: approx 34 bytes.
-    P2WPKH output: approx 31 bytes.
-    P2SH output: approx 32 bytes.
-    Base transaction overhead (version, locktime, nInputs, nOutputs): approx 10 bytes.
-    """
-    # Simplified estimates, can be refined
-    input_size = 0
-    if input_type == 'p2wpkh': # Segwit P2WPKH
-        input_size = 68 # vbytes
-    elif input_type == 'p2pkh': # Legacy P2PKH
-        input_size = 148 # bytes
-    else: # Fallback, rough estimate
-        input_size = 100
-
-    # For outputs, P2PKH is common, P2WPKH is smaller
-    # Assuming P2PKH for recipient and change for simplicity now
-    output_size = 34 # P2PKH output
-
-    # Overhead: version (4 bytes), input count (1-9 bytes), output count (1-9 bytes), locktime (4 bytes)
-    # Using a common estimate, can vary.
-    overhead = 10
-
-    estimated_size = (num_inputs * input_size) + (num_outputs * output_size) + overhead
-    return estimated_size
+# estimate_transaction_size function is now removed from here and is part of fee_estimator.py
 
 
 def select_utxos_for_amount(utxos: list, target_amount_sats: int, fee_rate_sats_per_byte: int, input_address_type: str = 'p2wpkh', output_address_type: str = 'p2pkh'):
@@ -107,8 +101,15 @@ def select_utxos_for_amount(utxos: list, target_amount_sats: int, fee_rate_sats_
         # Assume 2 outputs (recipient + change) for fee estimation during selection
         num_outputs = 2
 
-        current_tx_size = estimate_transaction_size(num_inputs, num_outputs, input_address_type, output_address_type)
-        estimated_fee_sats = current_tx_size * fee_rate_sats_per_byte
+        # Use fee_estimator
+        fee_details = fee_estimator.estimate_fee_details(
+            num_inputs=num_inputs,
+            num_outputs=num_outputs,
+            input_type=input_address_type,
+            output_type=output_address_type,
+            custom_fee_rate_sats_per_vbyte=fee_rate_sats_per_byte
+        )
+        estimated_fee_sats = fee_details['total_fee_sats']
 
         if total_selected_sats >= target_amount_sats + estimated_fee_sats:
             break # Found enough UTXOs for now
@@ -120,10 +121,17 @@ def select_utxos_for_amount(utxos: list, target_amount_sats: int, fee_rate_sats_
     elif total_selected_sats == target_amount_sats + estimated_fee_sats: # Exact amount, no change
         num_outputs_final = 1
     else: # Not enough funds even before precise change output consideration
-        num_outputs_final = 1 # Doesn't matter, will fail below
+        num_outputs_final = 1 # This case will be caught by the check below
 
-    final_tx_size = estimate_transaction_size(len(selected_utxos_list), num_outputs_final, input_address_type, output_address_type)
-    final_estimated_fee_sats = final_tx_size * fee_rate_sats_per_byte
+    # Use fee_estimator for final fee calculation
+    final_fee_details = fee_estimator.estimate_fee_details(
+        num_inputs=len(selected_utxos_list),
+        num_outputs=num_outputs_final,
+        input_type=input_address_type,
+        output_type=output_address_type,
+        custom_fee_rate_sats_per_vbyte=fee_rate_sats_per_byte
+    )
+    final_estimated_fee_sats = final_fee_details['total_fee_sats']
 
     if total_selected_sats < target_amount_sats + final_estimated_fee_sats:
             raise ValueError(
@@ -208,10 +216,49 @@ def create_raw_transaction(recipient_address: str, amount_btc: Decimal,
 
     # Determine number of outputs for fee calculation
     num_outputs = 1 # Recipient output
-    potential_change_sats = total_input_sats - target_sats
-    # Tentative fee based on this (will be refined)
-    _temp_est_size = estimate_transaction_size(len(utxos_to_spend), 2 if potential_change_sats > 0 else 1, input_address_type) # Assume 2 outputs if change > 0
-    calculated_fee_sats = _temp_est_size * fee_rate_sats_per_byte
+    potential_change_sats = total_input_sats - target_sats # Max possible change before fee
+
+    # Determine number of outputs for fee calculation: 1 (recipient) or 2 (recipient + change)
+    # A more precise fee calculation considers if change output will exist and be non-dust.
+    # For simplicity, assume change output will exist if potential_change_sats > some_dust_threshold_after_fee.
+    # Initial estimate assumes 2 outputs if potential_change_sats is positive by a margin.
+    # If potential_change_sats is small, it might become dust after fee, so 1 output.
+    # This is iterative. The fee depends on #outputs, #outputs depends on change, change depends on fee.
+
+    # Iteration 1: Assume 2 outputs if any change seems possible, else 1.
+    num_outputs_for_fee_calc = 2 if potential_change_sats > 0 else 1
+
+    fee_details = fee_estimator.estimate_fee_details(
+        num_inputs=len(utxos_to_spend),
+        num_outputs=num_outputs_for_fee_calc, # Initial guess for num_outputs
+        input_type=input_address_type,
+        # TODO: output_type for recipient and change could be different. Assume recipient's type for now.
+        output_type=Address(recipient_address, network=network_name).script_type, # Infer output type from recipient
+        custom_fee_rate_sats_per_vbyte=fee_rate_sats_per_byte
+    )
+    calculated_fee_sats = fee_details['total_fee_sats']
+
+    # Now, check if change is still possible and non-dust
+    change_sats = total_input_sats - target_sats - calculated_fee_sats
+    MIN_CHANGE_SATS = 546 # Common dust threshold
+
+    final_num_outputs = 1
+    if change_sats >= MIN_CHANGE_SATS:
+        final_num_outputs = 2
+
+    # If number of outputs changed due to dust logic, recalculate fee
+    if final_num_outputs != num_outputs_for_fee_calc:
+        fee_details = fee_estimator.estimate_fee_details(
+            num_inputs=len(utxos_to_spend),
+            num_outputs=final_num_outputs,
+            input_type=input_address_type,
+            output_type=Address(recipient_address, network=network_name).script_type,
+            custom_fee_rate_sats_per_vbyte=fee_rate_sats_per_byte
+        )
+        calculated_fee_sats = fee_details['total_fee_sats']
+        # Update change_sats based on new fee
+        change_sats = total_input_sats - target_sats - calculated_fee_sats
+
 
     if total_input_sats < target_sats + calculated_fee_sats:
         raise ValueError(

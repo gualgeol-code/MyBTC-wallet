@@ -1,0 +1,33 @@
+2025-06-06 08:13:49,476 - btc_wallet_app - DEBUG - This is a debug message.
+2025-06-06 08:13:49,476 - btc_wallet_app - INFO - Logger initialized. This is an info message.
+2025-06-06 08:13:49,476 - btc_wallet_app - WARNING - This is a warning message.
+2025-06-06 08:13:49,476 - btc_wallet_app - ERROR - This is an error message.
+2025-06-06 08:13:49,476 - btc_wallet_app - INFO - Testing logger again from the same instance. This should not duplicate handlers.
+2025-06-06 08:16:37,052 - __main__ - INFO - Database path configured to: /app/btc_wallet_app/storage/db.sqlite
+2025-06-06 08:16:37,069 - __main__ - INFO - Keys table initialized or already exists.
+2025-06-06 08:16:37,072 - __main__ - INFO - Transactions table initialized or already exists.
+2025-06-06 08:16:37,072 - __main__ - INFO - Database initialized successfully at /app/btc_wallet_app/storage/db.sqlite
+2025-06-06 08:16:37,072 - __main__ - INFO - --- Testing database operations ---
+2025-06-06 08:16:37,075 - __main__ - INFO - Added key record for address: testaddr1
+2025-06-06 08:16:37,078 - __main__ - INFO - Added key record for address: testaddr2
+2025-06-06 08:16:37,079 - __main__ - WARNING - Key record for address testaddr1 already exists.
+2025-06-06 08:16:37,079 - __main__ - INFO - Fetched key testaddr1: {'id': 1, 'address': 'testaddr1', 'wif_filename': 'mywallet.dat', 'label': 'Test Key 1', 'network': 'testnet', 'address_type': 'p2wpkh', 'creation_date': '2025-06-06 08:16:37'}
+2025-06-06 08:16:37,081 - __main__ - INFO - Updated label for address testaddr1 to 'My Primary Test Key'.
+2025-06-06 08:16:37,082 - __main__ - INFO - Fetched updated key testaddr1: {'id': 1, 'address': 'testaddr1', 'wif_filename': 'mywallet.dat', 'label': 'My Primary Test Key', 'network': 'testnet', 'address_type': 'p2wpkh', 'creation_date': '2025-06-06 08:16:37'}
+2025-06-06 08:16:37,082 - __main__ - INFO - All keys (2): [{'id': 1, 'address': 'testaddr1', 'wif_filename': 'mywallet.dat', 'label': 'My Primary Test Key', 'network': 'testnet', 'address_type': 'p2wpkh', 'creation_date': '2025-06-06 08:16:37'}, {'id': 2, 'address': 'testaddr2', 'wif_filename': 'mywallet.dat', 'label': 'Savings', 'network': 'mainnet', 'address_type': 'p2pkh', 'creation_date': '2025-06-06 08:16:37'}]
+2025-06-06 08:16:37,085 - __main__ - INFO - Added transaction record: txid_example_123
+2025-06-06 08:16:37,088 - __main__ - INFO - Added transaction record: txid_example_456
+2025-06-06 08:16:37,088 - __main__ - WARNING - Transaction record for TXID txid_example_123 already exists.
+2025-06-06 08:16:37,088 - __main__ - INFO - Fetched transaction txid_example_123: {'id': 1, 'txid': 'txid_example_123', 'date': '2025-06-06 08:16:37', 'amount_btc': Decimal('0.5'), 'fee_sats': 5000, 'recipient_address': 'recipient_addr_1', 'status': 'broadcasted', 'notes': 'Sent to friend'}
+2025-06-06 08:16:37,091 - __main__ - INFO - Updated status for TXID txid_example_123 to 'confirmed (6+)'.
+2025-06-06 08:16:37,091 - __main__ - INFO - Fetched updated transaction txid_example_123: {'id': 1, 'txid': 'txid_example_123', 'date': '2025-06-06 08:16:37', 'amount_btc': Decimal('0.5'), 'fee_sats': 5000, 'recipient_address': 'recipient_addr_1', 'status': 'confirmed (6+)', 'notes': 'Sent to friend'}
+2025-06-06 08:16:37,092 - __main__ - INFO - All transactions (2): [{'id': 1, 'txid': 'txid_example_123', 'date': '2025-06-06 08:16:37', 'amount_btc': Decimal('0.5'), 'fee_sats': 5000, 'recipient_address': 'recipient_addr_1', 'status': 'confirmed (6+)', 'notes': 'Sent to friend'}, {'id': 2, 'txid': 'txid_example_456', 'date': '2025-06-06 08:16:37', 'amount_btc': Decimal('1.234'), 'fee_sats': 12000, 'recipient_address': 'recipient_addr_2', 'status': 'confirmed', 'notes': 'Payment for goods'}]
+2025-06-06 08:16:37,092 - __main__ - INFO - --- Database operations testing finished ---
+2025-06-06 08:18:34,355 - btc_wallet_app.storage.database - INFO - Setting up TestTransactionFlow...
+2025-06-06 08:18:34,355 - btc_wallet_app.storage.database - INFO - Test database path set to: /app/btc_wallet_app/storage/test_wallet_db.sqlite
+2025-06-06 08:18:34,360 - btc_wallet_app.storage.database - INFO - Keys table initialized or already exists.
+2025-06-06 08:18:34,363 - btc_wallet_app.storage.database - INFO - Transactions table initialized or already exists.
+2025-06-06 08:18:34,363 - btc_wallet_app.storage.database - INFO - Database initialized successfully at /app/btc_wallet_app/storage/test_wallet_db.sqlite
+2025-06-06 08:18:34,363 - btc_wallet_app.storage.database - INFO - Test database initialized.
+2025-06-06 08:18:34,363 - btc_wallet_app.storage.database - WARNING - Wallet config network is 'mainnet'. End-to-end tests are best run on 'regtest'. Actual RPC calls will be skipped if not on regtest or if placeholders are used.
+2025-06-06 08:18:34,363 - btc_wallet_app.storage.database - INFO - Placeholder test executed successfully.
